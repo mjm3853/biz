@@ -5,15 +5,49 @@ import { ideas } from "../data/ideas";
 import { CATEGORIES, IDEA_STATUSES } from "../db/constants";
 import StatusBadge from "./components/StatusBadge";
 import WeightSliders from "./components/WeightSliders";
+import SeedButton from "./components/SeedButton";
 import { getIcon } from "../utils/icons";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 
 const ideaMap = Object.fromEntries(ideas.map((i) => [i.id, i]));
 
 export default function Overview() {
   const { isLoading } = useDatabase();
-  const { rankings, weights, changeWeight, changeStatus } = useRankings();
+  const { rankings, weights, changeWeight, changeStatus, refresh } = useRankings();
   const [statusMenu, setStatusMenu] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<string>("score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  function handleSort(key: string) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "name" ? "asc" : "desc");
+    }
+  }
+
+  const sortedRankings = useMemo(() => {
+    const sorted = [...rankings].sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "score") {
+        cmp = a.overallScore - b.overallScore;
+      } else if (sortKey === "name") {
+        const nameA = ideaMap[a.id]?.name ?? "";
+        const nameB = ideaMap[b.id]?.name ?? "";
+        cmp = nameA.localeCompare(nameB);
+      } else if (sortKey === "status") {
+        cmp = a.status.localeCompare(b.status);
+      } else {
+        cmp = (a.categoryScores[sortKey] ?? 0) - (b.categoryScores[sortKey] ?? 0);
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return sorted;
+  }, [rankings, sortKey, sortDir]);
+
+  const arrow = (key: string) =>
+    sortKey === key ? (sortDir === "desc" ? " ▼" : " ▲") : "";
 
   if (isLoading) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading database...</div>;
@@ -30,19 +64,25 @@ export default function Overview() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-2">
-          <div className="grid grid-cols-[2rem_minmax(7rem,1fr)_3.5rem_repeat(6,2.5rem)_5.5rem] gap-2 px-3 py-2 text-xs font-medium text-gray-400 uppercase tracking-wider">
-            <span>#</span>
-            <span>Idea</span>
-            <span className="text-right">Score</span>
+          <div className="grid grid-cols-[2rem_minmax(7rem,1fr)_3.5rem_repeat(6,2.5rem)_5.5rem] gap-2 px-3 py-2 text-xs font-medium uppercase tracking-wider">
+            <span className="text-gray-400">#</span>
+            <button onClick={() => handleSort("name")} className={`text-left cursor-pointer hover:text-gray-700 ${sortKey === "name" ? "text-gray-700" : "text-gray-400"}`}>
+              Idea{arrow("name")}
+            </button>
+            <button onClick={() => handleSort("score")} className={`text-right cursor-pointer hover:text-gray-700 ${sortKey === "score" ? "text-gray-700" : "text-gray-400"}`}>
+              Score{arrow("score")}
+            </button>
             {CATEGORIES.map((c) => (
-              <span key={c.key} className="text-center" title={c.label}>
-                {c.label.slice(0, 3)}
-              </span>
+              <button key={c.key} onClick={() => handleSort(c.key)} title={c.label} className={`text-center cursor-pointer hover:text-gray-700 ${sortKey === c.key ? "text-gray-700" : "text-gray-400"}`}>
+                {c.label.slice(0, 3)}{arrow(c.key)}
+              </button>
             ))}
-            <span className="text-center">Status</span>
+            <button onClick={() => handleSort("status")} className={`text-center cursor-pointer hover:text-gray-700 ${sortKey === "status" ? "text-gray-700" : "text-gray-400"}`}>
+              Status{arrow("status")}
+            </button>
           </div>
 
-          {rankings.map((r, idx) => {
+          {sortedRankings.map((r, idx) => {
             const idea = ideaMap[r.id];
             if (!idea) return null;
             const Icon = getIcon(idea.iconName);
@@ -119,11 +159,8 @@ export default function Overview() {
             );
           })}
 
-          {rankings.every((r) => r.overallScore === 0) && (
-            <div className="text-center py-12 text-gray-400">
-              <p className="text-sm">No ideas scored yet.</p>
-              <p className="text-xs mt-1">Click an idea name above to start scoring.</p>
-            </div>
+          {sortedRankings.every((r) => r.overallScore === 0) && (
+            <SeedButton onComplete={refresh} />
           )}
         </div>
 
