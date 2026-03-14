@@ -1,6 +1,7 @@
 import type { Database } from "sql.js";
 import { ideas } from "../data/ideas";
 import { CATEGORIES } from "./constants";
+import { seedVCAnalysis } from "./seed";
 
 const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS ideas (
@@ -59,6 +60,7 @@ export function initSchema(db: Database): void {
   db.run(SCHEMA_SQL);
   seedIdeas(db);
   seedWeights(db);
+  seedVCAnalysisIfEmpty(db);
 }
 
 function seedIdeas(db: Database): void {
@@ -81,4 +83,10 @@ function seedWeights(db: Database): void {
     stmt.run([cat.key, 1.0]);
   }
   stmt.free();
+}
+
+function seedVCAnalysisIfEmpty(db: Database): void {
+  const existing = db.exec("SELECT COUNT(*) FROM scores");
+  if ((existing[0]?.values[0]?.[0] as number) > 0) return;
+  seedVCAnalysis(db);
 }
