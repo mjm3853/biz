@@ -13,14 +13,26 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Lightbulb className="w-6 h-6 text-amber-500" />
             <span>SubStack Ideas</span>
           </Link>
-          {!isHub && (
+          <div className="flex items-center gap-4">
+            {!isHub && !location.pathname.startsWith("/dashboard") && (
+              <Link
+                to="/"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                &larr; All Ideas
+              </Link>
+            )}
             <Link
-              to="/"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+              to="/dashboard"
+              className={`text-sm font-medium transition-colors ${
+                location.pathname.startsWith("/dashboard")
+                  ? "text-gray-900 font-semibold"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
             >
-              &larr; All Ideas
+              Dashboard
             </Link>
-          )}
+          </div>
         </div>
       </nav>
       <main className="flex-1">{children}</main>
